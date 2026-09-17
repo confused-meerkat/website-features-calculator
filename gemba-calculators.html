@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gemba Concepts — Operations Cost Calculators</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#10131A;
+    --bg-elev:#171B24;
+    --bg-elev-2:#1E2430;
+    --border:#2A303C;
+    --border-strong:#3B4353;
+    --text:#EDEFF3;
+    --text-dim:#8B93A3;
+    --text-faint:#5B6472;
+    --accent:#E3A857;
+    --accent-strong:#F0C077;
+    --accent-ink:#241804;
+    --positive:#5FBC98;
+    --focus:#7FB4E0;
+    --font-display:'Space Grotesk','Segoe UI',system-ui,sans-serif;
+    --font-mono:'IBM Plex Mono','SFMono-Regular',Consolas,monospace;
+  }
+  :root[data-theme="light"]{
+    --bg:#F6F5F2;
+    --bg-elev:#FFFFFF;
+    --bg-elev-2:#EFEDE7;
+    --border:#DEDAD1;
+    --border-strong:#C7C1B5;
+    --text:#1B1D22;
+    --text-dim:#5B5F68;
+    --text-faint:#8A8E96;
+    --accent:#A9711A;
+    --accent-strong:#8A5C14;
+    --accent-ink:#FFFFFF;
+    --positive:#1E8563;
+    --focus:#1E6FB0;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#F6F5F2;
+      --bg-elev:#FFFFFF;
+      --bg-elev-2:#EFEDE7;
+      --border:#DEDAD1;
+      --border-strong:#C7C1B5;
+      --text:#1B1D22;
+      --text-dim:#5B5F68;
+      --text-faint:#8A8E96;
+      --accent:#A9711A;
+      --accent-strong:#8A5C14;
+      --accent-ink:#FFFFFF;
+      --positive:#1E8563;
+      --focus:#1E6FB0;
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-display);
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:1180px;margin:0 auto;padding:28px 24px 90px;}
+  a{color:inherit;}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:36px;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.01em;}
+  .brand .mark{width:30px;height:30px;border-radius:8px;background:var(--bg-elev-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--accent);}
+  .brand .mark svg{width:17px;height:17px;}
+  .topbar .tag{font-size:.85rem;color:var(--text-dim);}
+
+  .screen{display:none;}
+  .screen.active{display:block;}
+
+  /* ---- Home ---- */
+  .hero{max-width:640px;}
+  .hero h1{font-size:clamp(1.9rem,4vw,2.7rem);line-height:1.15;font-weight:600;margin:0 0 14px;}
+  .hero p{color:var(--text-dim);font-size:1.02rem;line-height:1.55;margin:0 0 40px;}
+
+  .tile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;}
+  .tile{
+    text-align:left;background:var(--bg-elev);border:1px solid var(--border);border-radius:14px;
+    padding:22px;display:flex;flex-direction:column;gap:16px;cursor:pointer;
+    font-family:var(--font-display);color:var(--text);transition:border-color .15s ease,transform .15s ease;
+  }
+  .tile:hover,.tile:focus-visible{border-color:var(--accent);transform:translateY(-2px);}
+  .tile:focus-visible{outline:2px solid var(--focus);outline-offset:2px;}
+  .tile .icon{width:42px;height:42px;border-radius:10px;background:var(--bg-elev-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-dim);}
+  .tile:hover .icon{color:var(--accent);}
+  .tile .icon svg{width:22px;height:22px;}
+  .tile h3{margin:0;font-size:1.05rem;font-weight:600;}
+  .tile p{margin:0;color:var(--text-dim);font-size:.88rem;line-height:1.45;}
+
+  .footnote{margin-top:44px;color:var(--text-faint);font-size:.82rem;line-height:1.5;max-width:640px;}
+
+  /* ---- Calculator screen ---- */
+  .back{
+    background:none;border:none;color:var(--text-dim);font-family:var(--font-display);font-size:.9rem;
+    cursor:pointer;padding:8px 0;margin-bottom:18px;display:inline-flex;align-items:center;gap:6px;
+  }
+  .back:hover{color:var(--text);}
+  .back:focus-visible{outline:2px solid var(--focus);outline-offset:2px;}
+
+  .calc-head h2{font-size:clamp(1.5rem,3vw,2rem);margin:0 0 8px;font-weight:600;}
+  .calc-head p{color:var(--text-dim);margin:0 0 30px;max-width:640px;line-height:1.5;}
+
+  .calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start;}
+  @media (max-width:860px){.calc-grid{grid-template-columns:1fr;}}
+
+  .panel{background:var(--bg-elev);border:1px solid var(--border);border-radius:16px;padding:26px;}
+  .panel.results{position:sticky;top:24px;}
+  @media (max-width:860px){.panel.results{position:static;}}
+
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:18px;}
+  .field:last-child{margin-bottom:0;}
+  .field label{font-size:.82rem;color:var(--text-dim);}
+  .field input{
+    background:var(--bg-elev-2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;
+    font-family:var(--font-mono);font-size:.98rem;color:var(--text);width:100%;
+  }
+  .field input:focus-visible{outline:2px solid var(--focus);outline-offset:1px;border-color:var(--focus);}
+
+  .hero-block{margin-bottom:6px;}
+  .hero-block .hero-label{display:block;font-size:.85rem;color:var(--text-dim);margin-bottom:6px;}
+  .hero-block .hero-num{font-family:var(--font-mono);font-weight:600;font-size:clamp(2rem,4.4vw,2.6rem);color:var(--accent);line-height:1.05;display:inline-block;}
+  .hero-block.secondary .hero-num{color:var(--positive);font-size:clamp(1.6rem,3.4vw,2.1rem);}
+  .hero-block .hero-sub{display:block;font-size:.8rem;color:var(--text-faint);margin-top:4px;}
+
+  .divider{height:1px;background:var(--border);margin:20px 0;}
+
+  .metric-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:.9rem;color:var(--text-dim);}
+  .metric-row:last-of-type{border-bottom:none;}
+  .metric-row .mono{font-family:var(--font-mono);color:var(--text);}
+
+  .cta{
+    margin-top:30px;padding:20px 22px;border:1px dashed var(--border-strong);border-radius:14px;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  }
+  .cta p{margin:0;font-size:.92rem;color:var(--text-dim);max-width:420px;}
+  .cta a.btn{
+    background:var(--accent);color:var(--accent-ink);border:none;border-radius:8px;padding:11px 20px;
+    font-weight:600;font-size:.92rem;text-decoration:none;white-space:nowrap;
+  }
+  .cta a.btn:hover{background:var(--accent-strong);}
+
+  .runs-local{margin-top:56px;padding-top:20px;border-top:1px solid var(--border);color:var(--text-faint);font-size:.8rem;line-height:1.5;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2.5 12h3M18.5 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>
+      </span>
+      Gemba Concepts
+    </div>
+    <div class="tag">Operations cost calculators</div>
+  </div>
+
+  <!-- ============ HOME ============ -->
+  <main id="view-home" class="screen active">
+    <div class="hero">
+      <h1>Where is production losing money right now?</h1>
+      <p>Six calculators, one for each floor-level cost driver. Pick the one closest to your plant — every number here recalculates as you type.</p>
+    </div>
+
+    <div class="tile-grid">
+      <button class="tile" data-calc="oee">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4.2-6.2"/><circle cx="12" cy="18" r="1.3" fill="currentColor" stroke="none"/></svg></span>
+        <h3>OEE</h3>
+        <p>Availability × performance × quality, in one number.</p>
+      </button>
+
+      <button class="tile" data-calc="downtime">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v7"/><path d="M7.4 5.6a8 8 0 1 0 9.2 0"/></svg></span>
+        <h3>Downtime cost</h3>
+        <p>Turn stoppage minutes into a rupee figure.</p>
+      </button>
+
+      <button class="tile" data-calc="inventory">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-4 9 4-9 4-9-4z"/><path d="M3 8v8l9 4 9-4V8"/><path d="M12 12v8"/></svg></span>
+        <h3>Inventory cost</h3>
+        <p>What sitting stock really costs you a year.</p>
+      </button>
+
+      <button class="tile" data-calc="labour">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.2" cy="7.2" r="2.3"/><path d="M4.8 19c0-3 2-5.1 4.4-5.1s4.4 2.1 4.4 5.1"/><path d="M15.8 13.2l2.8-2.8 2.8 2.8"/><path d="M18.6 10.4V18"/></svg></span>
+        <h3>Labour productivity</h3>
+        <p>Output per labour-hour vs. your target rate.</p>
+      </button>
+
+      <button class="tile" data-calc="changeover">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.2 12a7.8 7.8 0 0 1 13.2-5.6L19.5 8.5"/><path d="M19.5 4.5v4h-4"/><path d="M19.8 12a7.8 7.8 0 0 1-13.2 5.6L4.5 15.5"/><path d="M4.5 19.5v-4h4"/></svg></span>
+        <h3>Changeover savings</h3>
+        <p>What a faster SMED changeover is worth.</p>
+      </button>
+
+      <button class="tile" data-calc="truck">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 7.8h10v8.4h-10z"/><path d="M12.6 10.6h3.8l3 2.8v2.8h-6.8"/><circle cx="6.1" cy="17.8" r="1.6"/><circle cx="16.4" cy="17.8" r="1.6"/></svg></span>
+        <h3>Truck turnaround</h3>
+        <p>Gate-in to gate-out, priced in detention ₹.</p>
+      </button>
+    </div>
+
+    <p class="footnote">Built from a working set of eleven operating-loss domains mapped across 21 manufacturing families — asset reliability, changeover, inventory &amp; WIP, people &amp; skills, and warehouse &amp; dispatch among them. Start with whichever one matches a problem you already see on your floor.</p>
+  </main>
+
+  <!-- ============ OEE ============ -->
+  <main id="view-oee" class="screen">
+    <button class="back" data-back>← All calculators</button>
+    <div class="calc-head">
+      <h2>OEE calculator</h2>
+      <p>Availability, performance and quality multiplied together — the standard three-way split behind every OEE number.</p>
+    </div>
+    <div class="calc-grid">
+      <div class="panel inputs">
+        <div class="field"><label for="oee-planned">Planned production time (hrs/shift)</label><input type="number" id="oee-planned" value="8" step="0.1" min="0" oninput="calcOEE()"></div>
+        <div class="field"><label for="oee-downtime">Unplanned downtime (hrs/shift)</label><input type="number" id="oee-downtime" value="1.1" step="0.1" min="0" oninput="calcOEE()"></div>
+        <div class="field"><label for="oee-idealrate">Ideal run rate (units/hr)</label><input type="number" id="oee-idealrate" value="480" step="1" min="0" oninput="calcOEE()"></div>
+        <div class="field"><label for="oee-total">Total units produced (per shift)</label><input type="number" id="oee-total" value="2850" step="1" min="0" oninput="calcOEE()"></div>
+        <div class="field"><label for="oee-reject">Rejected / scrapped units (per shift)</label><input type="number" id="oee-reject" value="95" step="1" min="0" oninput="calcOEE()"></div>
+        <div class="field"><label for="oee-value">Value per good unit (₹)</label><input type="number" id="oee-value" value="42" step="1" min="0" oninput="calcOEE()"></div>
+        <div class="field"><label for="oee-days">Operating days per year</label><input type="number" id="oee-days" value="300" step="1" min="0" oninput="calcOEE()"></div>
+      </div>
+      <div class="panel results">
+        <div class="hero-block">
+          <span class="hero-label">OEE</span>
+          <span class="hero-num" id="oee-result">0%</span>
+        </div>
+        <div class="metric-row"><span>Availability</span><span class="mono" id="oee-availability">0%</span></div>
+        <div class="metric-row"><span>Performance</span><span class="mono" id="oee-performance">0%</span></div>
+        <div class="metric-row"><span>Quality</span><span class="mono" id="oee-quality">0%</span></div>
+        <div class="divider"></div>
+        <div class="hero-block secondary">
+          <span class="hero-label">Value left below 85% world-class OEE</span>
+          <span class="hero-num" id="oee-hiddenvalue">₹0</span>
+          <span class="hero-sub" id="oee-hiddenunits-sub">0 units/shift</span>
+        </div>
+        <div class="metric-row"><span>Annualised (<span id="oee-days-label">300</span> operating days)</span><span class="mono" id="oee-hiddenvalue-year">₹0</span></div>
+      </div>
+    </div>
+    <div class="cta">
+      <p>Want a lean team to validate these numbers on your actual line?</p>
+      <a class="btn" href="https://gembaconcepts.com" target="_blank" rel="noopener">Talk to Gemba Concepts</a>
+    </div>
+  </main>
+
+  <!-- ============ DOWNTIME ============ -->
+  <main id="view-downtime" class="screen">
+    <button class="back" data-back>← All calculators</button>
+    <div class="calc-head">
+      <h2>Downtime cost calculator</h2>
+      <p>Every stoppage hour costs two things at once: the margin on units you didn't make, and the overhead you paid anyway.</p>
+    </div>
+    <div class="calc-grid">
+      <div class="panel inputs">
+        <div class="field"><label for="dt-hours">Downtime (hrs/month)</label><input type="number" id="dt-hours" value="38" step="0.5" min="0" oninput="calcDowntime()"></div>
+        <div class="field"><label for="dt-rate">Output rate when running (units/hr)</label><input type="number" id="dt-rate" value="420" step="1" min="0" oninput="calcDowntime()"></div>
+        <div class="field"><label for="dt-margin">Contribution margin per unit (₹)</label><input type="number" id="dt-margin" value="65" step="1" min="0" oninput="calcDowntime()"></div>
+        <div class="field"><label for="dt-overhead">Idle overhead cost (₹/hr, labour + fixed costs still running)</label><input type="number" id="dt-overhead" value="1800" step="10" min="0" oninput="calcDowntime()"></div>
+      </div>
+      <div class="panel results">
+        <div class="hero-block">
+          <span class="hero-label">Downtime cost per month</span>
+          <span class="hero-num" id="dt-result">₹0</span>
+        </div>
+        <div class="metric-row"><span>Lost units</span><span class="mono" id="dt-units">0</span></div>
+        <div class="metric-row"><span>Lost margin</span><span class="mono" id="dt-margin-out">₹0</span></div>
+        <div class="metric-row"><span>Idle overhead cost</span><span class="mono" id="dt-overhead-out">₹0</span></div>
+        <div class="divider"></div>
+        <div class="hero-block secondary">
+          <span class="hero-label">Annualised</span>
+          <span class="hero-num" id="dt-year">₹0</span>
+        </div>
+      </div>
+    </div>
+    <div class="cta">
+      <p>Want help finding where those downtime hours are actually hiding?</p>
+      <a class="btn" href="https://gembaconcepts.com" target="_blank" rel="noopener">Talk to Gemba Concepts</a>
+    </div>
+  </main>
+
+  <!-- ============ INVENTORY ============ -->
+  <main id="view-inventory" class="screen">
+    <button class="back" data-back>← All calculators</button>
+    <div class="calc-head">
+      <h2>Inventory cost calculator</h2>
+      <p>Raw material, WIP and finished goods sitting in the plant aren't free — capital, storage, obsolescence and insurance all draw against them.</p>
+    </div>
+    <div class="calc-grid">
+      <div class="panel inputs">
+        <div class="field"><label for="inv-value">Average inventory value (₹) — raw + WIP + finished goods</label><input type="number" id="inv-value" value="18500000" step="10000" min="0" oninput="calcInventory()"></div>
+        <div class="field"><label for="inv-rate">Annual carrying cost rate (%) — typically 20–30%</label><input type="number" id="inv-rate" value="24" step="0.5" min="0" oninput="calcInventory()"></div>
+        <div class="field"><label for="inv-cogs">Annual COGS (₹) — optional, for turns &amp; days</label><input type="number" id="inv-cogs" value="92000000" step="10000" min="0" oninput="calcInventory()"></div>
+      </div>
+      <div class="panel results">
+        <div class="hero-block">
+          <span class="hero-label">Annual inventory carrying cost</span>
+          <span class="hero-num" id="inv-result">₹0</span>
+        </div>
+        <div class="metric-row"><span>Monthly carrying cost</span><span class="mono" id="inv-monthly">₹0</span></div>
+        <div class="divider"></div>
+        <div class="metric-row"><span>Inventory turns / year</span><span class="mono" id="inv-turns">–</span></div>
+        <div class="metric-row"><span>Days of inventory on hand</span><span class="mono" id="inv-days">–</span></div>
+      </div>
+    </div>
+    <div class="cta">
+      <p>Want to see how much of that could be freed up without hurting service?</p>
+      <a class="btn" href="https://gembaconcepts.com" target="_blank" rel="noopener">Talk to Gemba Concepts</a>
+    </div>
+  </main>
+
+  <!-- ============ LABOUR ============ -->
+  <main id="view-labour" class="screen">
+    <button class="back" data-back>← All calculators</button>
+    <div class="calc-head">
+      <h2>Labour productivity calculator</h2>
+      <p>Output per labour-hour against a target rate — and what it costs to run below it.</p>
+    </div>
+    <div class="calc-grid">
+      <div class="panel inputs">
+        <div class="field"><label for="lab-units">Units produced (per month)</label><input type="number" id="lab-units" value="68000" step="100" min="0" oninput="calcLabour()"></div>
+        <div class="field"><label for="lab-hours">Total labour hours (per month)</label><input type="number" id="lab-hours" value="9600" step="10" min="0" oninput="calcLabour()"></div>
+        <div class="field"><label for="lab-cost">Fully loaded labour cost (₹/hr)</label><input type="number" id="lab-cost" value="210" step="1" min="0" oninput="calcLabour()"></div>
+        <div class="field"><label for="lab-target">Target rate (units/labour-hr)</label><input type="number" id="lab-target" value="8.5" step="0.1" min="0" oninput="calcLabour()"></div>
+      </div>
+      <div class="panel results">
+        <div class="hero-block">
+          <span class="hero-label">Actual productivity</span>
+          <span class="hero-num" id="lab-result">0</span>
+          <span class="hero-sub">units per labour-hour</span>
+        </div>
+        <div class="metric-row"><span>Labour cost per unit</span><span class="mono" id="lab-costperunit">₹0</span></div>
+        <div class="metric-row"><span>Gap to target rate</span><span class="mono" id="lab-gap">0%</span></div>
+        <div class="divider"></div>
+        <div class="hero-block secondary">
+          <span class="hero-label">Cost of the productivity gap</span>
+          <span class="hero-num" id="lab-gapcost">₹0</span>
+          <span class="hero-sub">per month</span>
+        </div>
+        <div class="metric-row"><span>Annualised</span><span class="mono" id="lab-gapcost-year">₹0</span></div>
+      </div>
+    </div>
+    <div class="cta">
+      <p>Want help closing that gap with standard work, not just headcount?</p>
+      <a class="btn" href="https://gembaconcepts.com" target="_blank" rel="noopener">Talk to Gemba Concepts</a>
+    </div>
+  </main>
+
+  <!-- ============ CHANGEOVER ============ -->
+  <main id="view-changeover" class="screen">
+    <button class="back" data-back>← All calculators</button>
+    <div class="calc-head">
+      <h2>Changeover savings calculator</h2>
+      <p>Every minute shaved off a changeover is a minute of production time returned — valued at what that line is actually worth per hour.</p>
+    </div>
+    <div class="calc-grid">
+      <div class="panel inputs">
+        <div class="field"><label for="co-count">Changeovers per month</label><input type="number" id="co-count" value="54" step="1" min="0" oninput="calcChangeover()"></div>
+        <div class="field"><label for="co-current">Current changeover time (min)</label><input type="number" id="co-current" value="95" step="1" min="0" oninput="calcChangeover()"></div>
+        <div class="field"><label for="co-target">Target changeover time after SMED (min)</label><input type="number" id="co-target" value="35" step="1" min="0" oninput="calcChangeover()"></div>
+        <div class="field"><label for="co-value">Value of production time (₹/hr)</label><input type="number" id="co-value" value="9000" step="100" min="0" oninput="calcChangeover()"></div>
+      </div>
+      <div class="panel results">
+        <div class="hero-block">
+          <span class="hero-label">Savings per month</span>
+          <span class="hero-num" id="co-result">₹0</span>
+        </div>
+        <div class="metric-row"><span>Time saved per changeover</span><span class="mono" id="co-saved-each">0 min</span></div>
+        <div class="metric-row"><span>Total time saved per month</span><span class="mono" id="co-saved-total">0 hrs</span></div>
+        <div class="divider"></div>
+        <div class="hero-block secondary">
+          <span class="hero-label">Annualised</span>
+          <span class="hero-num" id="co-year">₹0</span>
+        </div>
+      </div>
+    </div>
+    <div class="cta">
+      <p>Want an SMED walk to find where that changeover time is actually going?</p>
+      <a class="btn" href="https://gembaconcepts.com" target="_blank" rel="noopener">Talk to Gemba Concepts</a>
+    </div>
+  </main>
+
+  <!-- ============ TRUCK ============ -->
+  <main id="view-truck" class="screen">
+    <button class="back" data-back>← All calculators</button>
+    <div class="calc-head">
+      <h2>Truck turnaround calculator</h2>
+      <p>Gate-in to gate-out. The gap between your current and target turnaround time, priced in detention and waiting cost.</p>
+    </div>
+    <div class="calc-grid">
+      <div class="panel inputs">
+        <div class="field"><label for="tt-trucks">Trucks dispatched per day</label><input type="number" id="tt-trucks" value="30" step="1" min="0" oninput="calcTruck()"></div>
+        <div class="field"><label for="tt-current">Current avg. turnaround (hrs)</label><input type="number" id="tt-current" value="3.2" step="0.1" min="0" oninput="calcTruck()"></div>
+        <div class="field"><label for="tt-target">Target turnaround (hrs)</label><input type="number" id="tt-target" value="1.6" step="0.1" min="0" oninput="calcTruck()"></div>
+        <div class="field"><label for="tt-cost">Cost per truck-hour (₹) — detention + waiting cost</label><input type="number" id="tt-cost" value="550" step="10" min="0" oninput="calcTruck()"></div>
+        <div class="field"><label for="tt-days">Working days per month</label><input type="number" id="tt-days" value="26" step="1" min="0" oninput="calcTruck()"></div>
+      </div>
+      <div class="panel results">
+        <div class="hero-block">
+          <span class="hero-label">Savings per month</span>
+          <span class="hero-num" id="tt-result">₹0</span>
+        </div>
+        <div class="metric-row"><span>Time saved per truck</span><span class="mono" id="tt-saved-each">0 hrs</span></div>
+        <div class="metric-row"><span>Truck-hours saved per day</span><span class="mono" id="tt-saved-day">0 hrs</span></div>
+        <div class="divider"></div>
+        <div class="hero-block secondary">
+          <span class="hero-label">Annualised</span>
+          <span class="hero-num" id="tt-year">₹0</span>
+        </div>
+      </div>
+    </div>
+    <div class="cta">
+      <p>Want to know where the gate-in queue is actually building up?</p>
+      <a class="btn" href="https://gembaconcepts.com" target="_blank" rel="noopener">Talk to Gemba Concepts</a>
+    </div>
+  </main>
+
+  <p class="runs-local">All six calculators run entirely in your browser — nothing you type is sent anywhere. Swap in your own plant figures for an accurate estimate; the numbers shown on load are illustrative examples only.</p>
+</div>
+
+<script>
+  function num(id){ var v = parseFloat(document.getElementById(id).value); return isNaN(v) ? 0 : v; }
+  function setText(id,val){ document.getElementById(id).textContent = val; }
+  function fmtINR(n){
+    if(!isFinite(n)) n = 0;
+    var sign = n < 0 ? '-' : '';
+    n = Math.abs(Math.round(n));
+    return sign + '₹' + n.toLocaleString('en-IN');
+  }
+  function fmtNum(n, decimals){
+    if(!isFinite(n)) n = 0;
+    return n.toLocaleString('en-IN', {maximumFractionDigits: decimals||0, minimumFractionDigits: decimals||0});
+  }
+  function pct(n){
+    if(!isFinite(n)) n = 0;
+    return (Math.round(n*1000)/10) + '%';
+  }
+
+  // ---- Navigation ----
+  function showView(id){
+    var screens = document.querySelectorAll('.screen');
+    for(var i=0;i<screens.length;i++){ screens[i].classList.remove('active'); }
+    document.getElementById(id).classList.add('active');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  document.querySelectorAll('.tile').forEach(function(t){
+    t.addEventListener('click', function(){ showView('view-' + t.getAttribute('data-calc')); });
+  });
+  document.querySelectorAll('[data-back]').forEach(function(b){
+    b.addEventListener('click', function(){ showView('view-home'); });
+  });
+
+  // ---- OEE ----
+  function calcOEE(){
+    var planned = num('oee-planned');
+    var downtime = num('oee-downtime');
+    var idealRate = num('oee-idealrate');
+    var total = num('oee-total');
+    var reject = num('oee-reject');
+    var value = num('oee-value');
+    var days = num('oee-days');
+
+    var runTime = Math.max(planned - downtime, 0);
+    var availability = planned > 0 ? runTime / planned : 0;
+    var good = Math.max(total - reject, 0);
+    var quality = total > 0 ? good / total : 0;
+    var idealCount = idealRate * runTime;
+    var performance = idealCount > 0 ? Math.min(total / idealCount, 1.5) : 0;
+    var oee = availability * performance * quality;
+
+    setText('oee-result', pct(oee));
+    setText('oee-availability', pct(availability));
+    setText('oee-performance', pct(performance));
+    setText('oee-quality', pct(quality));
+
+    var worldClass = 0.85;
+    var gap = Math.max(worldClass - oee, 0);
+    var idealCapacityAtPlanned = idealRate * planned;
+    var hiddenUnits = gap * idealCapacityAtPlanned;
+    var hiddenValue = hiddenUnits * value;
+
+    setText('oee-hiddenvalue', fmtINR(hiddenValue) + ' /shift');
+    setText('oee-hiddenunits-sub', fmtNum(hiddenUnits) + ' units/shift');
+    setText('oee-hiddenvalue-year', fmtINR(hiddenValue * days));
+    setText('oee-days-label', fmtNum(days));
+  }
+
+  // ---- Downtime cost ----
+  function calcDowntime(){
+    var hours = num('dt-hours');
+    var rate = num('dt-rate');
+    var margin = num('dt-margin');
+    var overhead = num('dt-overhead');
+
+    var lostUnits = hours * rate;
+    var lostMargin = lostUnits * margin;
+    var idleOverhead = hours * overhead;
+    var totalMonth = lostMargin + idleOverhead;
+
+    setText('dt-result', fmtINR(totalMonth));
+    setText('dt-units', fmtNum(lostUnits));
+    setText('dt-margin-out', fmtINR(lostMargin));
+    setText('dt-overhead-out', fmtINR(idleOverhead));
+    setText('dt-year', fmtINR(totalMonth * 12));
+  }
+
+  // ---- Inventory cost ----
+  function calcInventory(){
+    var value = num('inv-value');
+    var rate = num('inv-rate') / 100;
+    var cogs = num('inv-cogs');
+
+    var annualCarrying = value * rate;
+    var monthlyCarrying = annualCarrying / 12;
+
+    setText('inv-result', fmtINR(annualCarrying));
+    setText('inv-monthly', fmtINR(monthlyCarrying));
+
+    if(cogs > 0 && value > 0){
+      var turns = cogs / value;
+      var daysOnHand = 365 / turns;
+      setText('inv-turns', fmtNum(turns, 1));
+      setText('inv-days', fmtNum(daysOnHand, 0) + ' days');
+    } else {
+      setText('inv-turns', '–');
+      setText('inv-days', '–');
+    }
+  }
+
+  // ---- Labour productivity ----
+  function calcLabour(){
+    var units = num('lab-units');
+    var hours = num('lab-hours');
+    var cost = num('lab-cost');
+    var target = num('lab-target');
+
+    var actual = hours > 0 ? units / hours : 0;
+    var costPerUnit = units > 0 ? (hours * cost) / units : 0;
+    var gapPct = target > 0 ? Math.max((target - actual) / target, 0) : 0;
+
+    setText('lab-result', fmtNum(actual, 2));
+    setText('lab-costperunit', fmtINR(costPerUnit));
+    setText('lab-gap', pct(gapPct));
+
+    var hoursNeededAtTarget = target > 0 ? units / target : 0;
+    var excessHours = Math.max(hours - hoursNeededAtTarget, 0);
+    var gapCostMonth = excessHours * cost;
+
+    setText('lab-gapcost', fmtINR(gapCostMonth));
+    setText('lab-gapcost-year', fmtINR(gapCostMonth * 12));
+  }
+
+  // ---- Changeover savings ----
+  function calcChangeover(){
+    var count = num('co-count');
+    var current = num('co-current');
+    var target = num('co-target');
+    var value = num('co-value');
+
+    var savedMin = Math.max(current - target, 0);
+    var totalHoursSaved = (savedMin * count) / 60;
+    var monthSavings = totalHoursSaved * value;
+
+    setText('co-saved-each', fmtNum(savedMin) + ' min');
+    setText('co-saved-total', fmtNum(totalHoursSaved, 1) + ' hrs');
+    setText('co-result', fmtINR(monthSavings));
+    setText('co-year', fmtINR(monthSavings * 12));
+  }
+
+  // ---- Truck turnaround ----
+  function calcTruck(){
+    var trucks = num('tt-trucks');
+    var current = num('tt-current');
+    var target = num('tt-target');
+    var cost = num('tt-cost');
+    var days = num('tt-days');
+
+    var savedEach = Math.max(current - target, 0);
+    var savedPerDay = savedEach * trucks;
+    var savedPerMonth = savedPerDay * days;
+    var monthSavings = savedPerMonth * cost;
+
+    setText('tt-saved-each', fmtNum(savedEach, 1) + ' hrs');
+    setText('tt-saved-day', fmtNum(savedPerDay, 1) + ' hrs');
+    setText('tt-result', fmtINR(monthSavings));
+    setText('tt-year', fmtINR(monthSavings * 12));
+  }
+
+  // ---- Init ----
+  calcOEE();
+  calcDowntime();
+  calcInventory();
+  calcLabour();
+  calcChangeover();
+  calcTruck();
+</script>
+</body>
+</html>
